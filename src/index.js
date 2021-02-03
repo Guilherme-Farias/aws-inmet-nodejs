@@ -1,33 +1,52 @@
 const express = require('express');
 const bodyParser = require('body-parser')
 const cors = require('cors');
-const { format } = require('date-fns')
-const api = require('./services/api')
-const app = express();
 
+const { Kinesis } = require('aws-sdk')
+const { format, utcToZonedTime } = require('date-fns-tz');
+const api = require('./services/api')
+
+
+const kinesis = new Kinesis()
+const app = express();
 app.use(cors())
 app.use(bodyParser.json())
 
+
 app.get('/', async (request, response) => {
     try {
-        const time = format(new Date(), "yyyy-MM-dd/HH00")
-        const apiResponse = await api.get(`/${time}`)
-    
-        const stationsOfPE = []
         
+        const recifeDate = utcToZonedTime(new Date(), "America/Recife")
+        const timeBrazilFormatted = format(recifeDate, "yyyy-MM-dd/HH00")
+
+
+        const apiResponse = await api.get(`/${timeBrazilFormatted}`)
+        const stationsOfPE = []
+
+
         apiResponse.data.map(station => {
-            if(station.UF === 'PE'){
+            if (station.UF === 'PE') {
                 let data = {
-                    name: station.DC_NOME,
-                    temperature: station.TEM_INS,
-                    humidity: station.UMD_INS
-                }
+                    Data: JSON.stringify({
+                        name: station.DC_NOME,
+                        temperature: parseFloat(station.TEM_INS),
+                        humidity: parseFloat(station.UMD_INS)
+                    }),
+                    PartitionKey: station.DC_NOME,
+                };
 
                 stationsOfPE.push(data)
             }
         })
-        return response.status(200).json(stationsOfPE)
-        
+
+        const kinesisRecordsParams = {
+            StreamName: "api-stream",
+            Records: stationsOfPE,
+        }
+        kinesis.putRecords(kinesisRecordsParams, function (error, data) {
+            if (error) throw new Error("Bad request");
+            else return response.status(200).json({ data: data });
+        });
     } catch (error) {
         return response.status(400).json(error)
     }
