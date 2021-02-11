@@ -17,10 +17,10 @@ app.get('/', async (request, response) => {
     try {
         
         const recifeDate = utcToZonedTime(new Date(), "America/Recife")
-        const timeBrazilFormatted = format(recifeDate, "yyyy-MM-dd/HH00")
+        const timeRecifeFormatted = format(recifeDate, "yyyy-MM-dd/HH00")
 
 
-        const apiResponse = await api.get(`/${timeBrazilFormatted}`)
+        const apiResponse = await api.get(`/${timeRecifeFormatted}`)
         const stationsOfPE = []
 
 
@@ -45,7 +45,7 @@ app.get('/', async (request, response) => {
         }
         kinesis.putRecords(kinesisRecordsParams, function (error, data) {
             if (error) throw new Error("Bad request");
-            else return response.status(200).json({ data: data });
+            else return response.status(200).json(data);
         });
     } catch (error) {
         return response.status(400).json(error)
